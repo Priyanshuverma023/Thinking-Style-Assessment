@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Thinking Style Assessment – Discover your dominant cognitive approach." />
+  <title>Thinking Style Assessment | EasyShiksha</title>
+  <style>[hidden]{display:none!important}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="tsa--loader-overlay" id="appLoader" role="alert" aria-live="assertive" aria-busy="true" hidden>
+    <div class="tsa--loader-inner">
+      <div class="tsa--loader-ring"></div>
+      <span class="tsa--loader-label">EasyShiksha</span>
+    </div>
+  </div>
+
+  <div class="tsa--toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="tsa--confirm-overlay" id="confirmOverlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="tsa--confirm-panel">
+      <div class="tsa--confirm-icon" id="confirmIcon">
+        <img src="assets/svg/delete.svg" width="18" height="18" alt="" />
+      </div>
+      <p class="tsa--confirm-heading" id="confirmTitle">Are you sure?</p>
+      <p class="tsa--confirm-body" id="confirmMsg">This action cannot be undone.</p>
+      <div class="tsa--confirm-row">
+        <button class="tsa--btn-ghost tsa--btn-sm" id="confirmCancel" type="button">Cancel</button>
+        <button class="tsa--btn-danger tsa--btn-sm" id="confirmOk" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tsa--app" id="tsaApp">
+
+    <header class="tsa--header" role="banner">
+      <div class="tsa--header-brand">
+        <div class="tsa--header-logo" aria-hidden="true">T</div>
+        <div class="tsa--header-text">
+          <span class="tsa--header-title">Thinking Style Assessment</span>
+          <span class="tsa--header-sub">Psychometric Cognitive Evaluation</span>
+        </div>
+      </div>
+      <div class="tsa--header-right" id="headerRight"></div>
+    </header>
+
+    <!-- SCREEN: Welcome -->
+    <section class="tsa--screen tsa--screen-welcome active" id="screenWelcome" aria-label="Welcome screen">
+      <div class="tsa--welcome-wrap">
+        <div class="tsa--welcome-grid">
+
+          <div class="tsa--welcome-left">
+            <div class="tsa--pill">Premium Assessment</div>
+            <h1 class="tsa--hero-title">Discover Your<br><em>Thinking Style</em></h1>
+            <p class="tsa--hero-desc">A psychological self-evaluation tool that identifies your dominant cognitive approach — Analytical, Creative, or Practical.</p>
+
+
+
+            <div class="tsa--mode-section">
+              <div class="tsa--mode-header">
+                <span class="tsa--section-label">Choose Assessment Mode</span>
+                <span class="tsa--section-hint">Select one</span>
+              </div>
+              <div class="tsa--mode-grid" id="modeGrid" role="radiogroup" aria-label="Assessment mode"></div>
+            </div>
+
+            <div class="tsa--stats-row">
+              <div class="tsa--stat">
+                <span class="tsa--stat-num" id="statQuestions">27</span>
+                <span class="tsa--stat-label">Questions</span>
+              </div>
+              <div class="tsa--stat-div"></div>
+              <div class="tsa--stat">
+                <span class="tsa--stat-num">3</span>
+                <span class="tsa--stat-label">Domains</span>
+              </div>
+              <div class="tsa--stat-div"></div>
+              <div class="tsa--stat">
+                <span class="tsa--stat-num">~15</span>
+                <span class="tsa--stat-label">Minutes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tsa--form-panel">
+            <div class="tsa--form-panel-header">
+              <p class="tsa--form-panel-title">Begin Your Assessment</p>
+              <p class="tsa--form-panel-sub">Enter your details to generate a personalised report.</p>
+            </div>
+            <form id="welcomeForm" novalidate>
+              <div class="tsa--field-group">
+                <label class="tsa--field-label" for="inpName">Full Name <span class="tsa--req" aria-hidden="true">*</span></label>
+                <input class="tsa--field-input" type="text" id="inpName" maxlength="70" placeholder="e.g. Arjun Sharma" autocomplete="name" />
+                <span class="tsa--field-err" id="errName" role="alert"></span>
+              </div>
+              
+              <div class="tsa--how-block">
+                <strong class="tsa--how-title">How it works</strong>
+                <p class="tsa--how-body">Each question presents four options. Select the one that feels most natural. The assessment auto-advances. You can flag questions for review, skip any question, and change answers before submitting.</p>
+              </div>
+              <button type="submit" class="tsa--btn-primary tsa--btn-full" id="btnBegin">
+                Start Assessment
+                <img src="assets/svg/arrow-right.svg" alt="" width="14" height="14" />
+              </button>
+            </form>
+            <p class="tsa--disclaimer">Your responses are used solely to generate your report. No data is stored on any server.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN: Questions -->
+    <section class="tsa--screen tsa--screen-questions" id="screenQuestions" aria-label="Assessment questions" hidden>
+
+      <div class="tsa--tabs-bar" role="tablist" aria-label="Assessment categories">
+        <div class="tsa--tabs-inner" id="catTabs"></div>
+      </div>
+
+      <div class="tsa--progress-strip">
+        <div class="tsa--dots-row" id="qDots" aria-label="Question progress"></div>
+      </div>
+
+      <div class="tsa--q-outer">
+        <div class="tsa--q-card" id="qCard">
+          <div class="tsa--q-card-header">
+            <div class="tsa--q-meta-row">
+              <span class="tsa--q-cat-badge" id="qCatBadge">Analytical</span>
+              <span class="tsa--q-counter" id="qCounter">Question 1 of 9</span>
+            </div>
+            <div class="tsa--q-flag-row" id="qFlagIndicator" hidden>
+              <span class="tsa--flag-chip">Flagged for review</span>
+            </div>
+          </div>
+          <p class="tsa--q-text" id="qText"></p>
+          <div class="tsa--options-grid" id="optionsList" role="radiogroup" aria-label="Answer options"></div>
+          <div class="tsa--q-footer">
+            <button class="tsa--btn-ghost tsa--btn-sm" id="btnPrev" type="button" aria-label="Previous question">
+              <img src="assets/svg/arrow-left.svg" alt="" width="13" height="13" /> Back
+            </button>
+            <div class="tsa--q-footer-right">
+              <button class="tsa--btn-flag tsa--btn-sm" id="btnFlag" type="button" aria-pressed="false">
+                <img src="assets/svg/flag.svg" alt="" width="12" height="12" />
+                <span id="btnFlagLabel">Flag</span>
+              </button>
+              <button class="tsa--btn-ghost tsa--btn-sm" id="btnSkip" type="button">Skip</button>
+              <button class="tsa--btn-next tsa--btn-sm" id="btnNext" type="button">
+                Next <img src="assets/svg/arrow-right.svg" alt="" width="13" height="13" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tsa--finish-bar">
+        <span class="tsa--finish-info" id="completionStatus">Answer all questions to submit</span>
+        <button class="tsa--btn-primary tsa--btn-sm" id="btnViewResults" type="button">View Results</button>
+      </div>
+
+    </section>
+
+    <!-- SCREEN: Review -->
+    <section class="tsa--screen tsa--screen-review" id="screenReview" aria-label="Review your assessment" hidden>
+      <div class="tsa--review-wrap">
+
+        <div class="tsa--review-head">
+          <h2 class="tsa--review-title">Review Assessment</h2>
+          <p class="tsa--review-sub">Check your answers before submitting. You can return to change any answer or focus on flagged questions.</p>
+        </div>
+
+        <div class="tsa--review-stats" id="reviewStats"></div>
+
+        <div class="tsa--review-cats-card">
+          <h3 class="tsa--card-section-label">Category Breakdown</h3>
+          <div class="tsa--review-cats-grid" id="reviewCatsGrid"></div>
+        </div>
+
+        <div class="tsa--review-flagged-block" id="reviewFlaggedBlock" hidden>
+          <h3 class="tsa--card-section-label">Flagged Questions</h3>
+          <div class="tsa--review-flagged-list" id="reviewFlaggedList"></div>
+        </div>
+
+        <div class="tsa--review-actions">
+          <button class="tsa--btn-ghost tsa--btn-sm" id="revBtnBack" type="button">
+            <img src="assets/svg/arrow-left.svg" alt="" width="13" height="13" /> Back to Questions
+          </button>
+          <button class="tsa--btn-flag tsa--btn-sm" id="revBtnFlagged" type="button">
+            <img src="assets/svg/flag.svg" alt="" width="12" height="12" /> Review Flagged
+          </button>
+          <button class="tsa--btn-primary tsa--btn-sm" id="revBtnSubmit" type="button">
+            Submit &amp; View Results <img src="assets/svg/arrow-right.svg" alt="" width="13" height="13" />
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN: Results -->
+    <section class="tsa--screen tsa--screen-results" id="screenResults" aria-label="Assessment results" hidden>
+      <div class="tsa--results-wrap">
+
+        <div class="tsa--res-header">
+          <div class="tsa--res-header-left">
+            <h1 class="tsa--res-title">Your Results</h1>
+            <p class="tsa--res-meta" id="resMeta"></p>
+          </div>
+          <div class="tsa--res-header-actions">
+            <button class="tsa--btn-ghost tsa--btn-sm" id="btnRestart" type="button">
+              <img src="assets/svg/restart.svg" alt="" width="13" height="13" /> New Assessment
+            </button>
+            <button class="tsa--btn-primary tsa--btn-sm" id="btnPdf" type="button">
+              <img src="assets/svg/download.svg" alt="" width="13" height="13" /> Export PDF
+            </button>
+          </div>
+        </div>
+
+        <div class="tsa--res-dominant-card" id="resDominantCard">
+          <div class="tsa--res-circle-wrap">
+            <div class="tsa--res-circle" id="resCircle">
+              <span class="tsa--res-circle-pct" id="resOverallPct">—</span>
+            </div>
+          </div>
+          <div class="tsa--res-dominant-info">
+            <p class="tsa--res-dominant-label">Dominant Thinking Style</p>
+            <div class="tsa--res-dominant-type" id="resOverallType">—</div>
+            <p class="tsa--res-dominant-desc">Based on your weighted responses across all assessed domains.</p>
+          </div>
+        </div>
+
+        <div class="tsa--score-bars-section" id="scoreBarsSection"></div>
+
+        <div class="tsa--res-insight-block" id="resInsight"></div>
+
+        <div class="tsa--res-detail-grid" id="resDetailGrid"></div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>
