@@ -47,7 +47,9 @@
           <span class="tsa--header-sub">Psychometric Cognitive Evaluation</span>
         </div>
       </div>
-      <div class="tsa--header-right" id="headerRight"></div>
+      <div class="tsa--header-right" id="headerRight">
+        <!-- Timer display injected here by JS when assessment is active -->
+      </div>
     </header>
 
     <!-- SCREEN: Welcome -->
@@ -60,14 +62,51 @@
             <h1 class="tsa--hero-title">Discover Your<br><em>Thinking Style</em></h1>
             <p class="tsa--hero-desc">A psychological self-evaluation tool that identifies your dominant cognitive approach — Analytical, Creative, or Practical.</p>
 
-
-
             <div class="tsa--mode-section">
               <div class="tsa--mode-header">
                 <span class="tsa--section-label">Choose Assessment Mode</span>
                 <span class="tsa--section-hint">Select one</span>
               </div>
               <div class="tsa--mode-grid" id="modeGrid" role="radiogroup" aria-label="Assessment mode"></div>
+            </div>
+
+            <!-- TIMER TOGGLE SECTION -->
+            <div class="tsa--timer-section">
+              <div class="tsa--timer-section-header">
+                <span class="tsa--section-label">Per-Question Timer</span>
+                <span class="tsa--section-hint">Optional</span>
+              </div>
+              <div class="tsa--timer-toggle-wrap">
+                <button
+                  class="tsa--timer-toggle-btn"
+                  id="btnTimerToggle"
+                  type="button"
+                  aria-pressed="false"
+                  aria-label="Enable per-question timer"
+                >
+                  <span class="tsa--timer-toggle-track" aria-hidden="true">
+                    <span class="tsa--timer-toggle-knob"></span>
+                  </span>
+                  <span class="tsa--timer-toggle-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/>
+                    </svg>
+                  </span>
+                  <span class="tsa--timer-toggle-text" id="timerToggleText">Timer Off</span>
+                </button>
+
+                <div class="tsa--timer-duration-picker" id="timerDurationPicker" aria-hidden="true">
+                  <span class="tsa--timer-duration-label">Seconds per question</span>
+                  <div class="tsa--timer-duration-btns" role="group" aria-label="Select timer duration">
+                    <button class="tsa--timer-dur-btn" data-seconds="15" type="button">15s</button>
+                    <button class="tsa--timer-dur-btn" data-seconds="30" type="button">30s</button>
+                    <button class="tsa--timer-dur-btn tsa--timer-dur-btn--active" data-seconds="45" type="button">45s</button>
+                    <button class="tsa--timer-dur-btn" data-seconds="60" type="button">60s</button>
+                    <button class="tsa--timer-dur-btn" data-seconds="90" type="button">90s</button>
+                  </div>
+                  <p class="tsa--timer-duration-hint">When time runs out, the question is auto-skipped.</p>
+                </div>
+              </div>
             </div>
 
             <div class="tsa--stats-row">
@@ -99,7 +138,7 @@
                 <input class="tsa--field-input" type="text" id="inpName" maxlength="70" placeholder="e.g. Arjun Sharma" autocomplete="name" />
                 <span class="tsa--field-err" id="errName" role="alert"></span>
               </div>
-              
+
               <div class="tsa--how-block">
                 <strong class="tsa--how-title">How it works</strong>
                 <p class="tsa--how-body">Each question presents four options. Select the one that feels most natural. The assessment auto-advances. You can flag questions for review, skip any question, and change answers before submitting.</p>
@@ -124,6 +163,30 @@
 
       <div class="tsa--progress-strip">
         <div class="tsa--dots-row" id="qDots" aria-label="Question progress"></div>
+      </div>
+
+      <!-- PER-QUESTION TIMER WIDGET -->
+      <div class="tsa--q-timer-wrap" id="qTimerWrap" hidden aria-live="polite" aria-label="Question timer">
+        <div class="tsa--q-timer-inner">
+          <div class="tsa--q-timer-arc-wrap" aria-hidden="true">
+            <svg class="tsa--q-timer-svg" viewBox="0 0 52 52" fill="none">
+              <circle class="tsa--q-timer-track" cx="26" cy="26" r="22" stroke-width="3"/>
+              <circle class="tsa--q-timer-progress" id="timerArcProgress" cx="26" cy="26" r="22" stroke-width="3"
+                stroke-dasharray="138.23"
+                stroke-dashoffset="0"
+                stroke-linecap="round"
+                transform="rotate(-90 26 26)"
+              />
+            </svg>
+            <span class="tsa--q-timer-count" id="qTimerCount">45</span>
+          </div>
+          <div class="tsa--q-timer-meta">
+            <span class="tsa--q-timer-label">Time left</span>
+            <div class="tsa--q-timer-bar-track" aria-hidden="true">
+              <div class="tsa--q-timer-bar-fill" id="qTimerBar"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="tsa--q-outer">

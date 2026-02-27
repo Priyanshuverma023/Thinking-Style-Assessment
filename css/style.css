@@ -1,8 +1,3 @@
-/* =========================================================
-   Thinking Style Assessment — style.css
-   EasyShiksha Internal Tool v2
-   ========================================================= */
-
 :root {
   --fs-26-60: clamp(26px, 2.5297vw + 11.43px, 60px);
   --fs-20-42: clamp(20px, 1.636vw + 10.5766px, 42px);
@@ -47,11 +42,15 @@
   --trans: 0.2s var(--ease);
   --font-display: 'Instrument Serif', Georgia, serif;
   --font-ui: 'Syne', system-ui, sans-serif;
+
+  /* Timer specific */
+  --timer-ok:      #22c55e;
+  --timer-warn:    #f59e0b;
+  --timer-danger:  #ef4444;
+  --timer-stroke:  var(--accent);
+  --timer-circumference: 138.23;
 }
 
-/* =========================================================
-   BASE RESET
-   ========================================================= */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -82,10 +81,6 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
-
-/* =========================================================
-   LOADER
-   ========================================================= */
 
 .tsa--loader-overlay {
   position: fixed;
@@ -131,9 +126,6 @@ button {
   color: var(--accent);
 }
 
-/* =========================================================
-   TOAST
-   ========================================================= */
 
 .tsa--toast-region {
   position: fixed;
@@ -582,31 +574,8 @@ button {
   max-width: 480px;
 }
 
-.tsa--price-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--accent);
-  padding: 10px 20px;
-  border-radius: var(--r-sm);
-  margin-bottom: 32px;
-}
-
-.tsa--price {
-  font-family: var(--font-ui);
-  font-size: var(--fs-16-32);
-  font-weight: 800;
-  color: var(--text-1);
-}
-
-.tsa--price-div {
-  font-size: var(--fs-16-32);
-  color: var(--accent-deeper);
-  font-weight: 300;
-}
-
 .tsa--mode-section {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .tsa--mode-header {
@@ -692,6 +661,7 @@ button {
   display: flex;
   align-items: center;
   gap: 20px;
+  margin-top: 28px;
 }
 
 .tsa--stat {
@@ -1651,10 +1621,8 @@ button {
 
 /* =========================================================
    MIXED QUESTION FORMAT STYLES
-   Added: type tag badge, choice options, true/false options
    ========================================================= */
 
-/* Question type badge (appears inside category badge) */
 .tsa--q-type-tag {
   display: inline-flex;
   align-items: center;
@@ -1670,7 +1638,6 @@ button {
   opacity: 0.85;
 }
 
-/* Coloured dot indicator for scale options (likert / freq) */
 .tsa--option-dot {
   width: 10px;
   height: 10px;
@@ -1679,7 +1646,6 @@ button {
   flex-shrink: 0;
 }
 
-/* Scenario / multiple-choice variant — text wraps */
 .tsa--option-choice {
   align-items: flex-start;
   gap: 12px;
@@ -1700,7 +1666,6 @@ button {
   color: inherit;
 }
 
-/* True / False two-button row */
 .tsa--options-grid:has(.tsa--option-tf) {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1758,7 +1723,6 @@ button {
   box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.2);
 }
 
-/* Fallback for browsers that don't support :has() */
 @supports not selector(:has(*)) {
   .tsa--options-grid {
     display: flex;
@@ -1776,5 +1740,398 @@ button {
   }
   .tsa--tf-label {
     font-size: 13px;
+  }
+}
+
+/* =========================================================
+   TIMER TOGGLE — Welcome Screen
+   ========================================================= */
+
+.tsa--timer-section {
+  margin-bottom: 28px;
+}
+
+.tsa--timer-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tsa--timer-toggle-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The pill toggle button */
+.tsa--timer-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  transition:
+    border-color 0.22s var(--ease),
+    background   0.22s var(--ease),
+    color        0.22s var(--ease),
+    box-shadow   0.22s var(--ease);
+  width: fit-content;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.tsa--timer-toggle-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 198, 47, 0.06) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.22s var(--ease);
+  pointer-events: none;
+}
+
+.tsa--timer-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.tsa--timer-toggle-btn:hover::before {
+  opacity: 1;
+}
+
+.tsa--timer-toggle-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgba(255, 198, 47, 0.08);
+  color: var(--text-1);
+  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.18);
+}
+
+.tsa--timer-toggle-btn[aria-pressed="true"]::before {
+  opacity: 1;
+}
+
+.tsa--timer-toggle-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Toggle track (visual switch) */
+.tsa--timer-toggle-track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 100px;
+  background: var(--surface-3);
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  transition: background 0.22s var(--ease), border-color 0.22s var(--ease);
+}
+
+.tsa--timer-toggle-btn[aria-pressed="true"] .tsa--timer-toggle-track {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+}
+
+.tsa--timer-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-3);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  transition: transform 0.22s var(--ease), background 0.22s var(--ease);
+}
+
+.tsa--timer-toggle-btn[aria-pressed="true"] .tsa--timer-toggle-knob {
+  transform: translateX(18px);
+  background: var(--text-1);
+}
+
+/* Clock icon */
+.tsa--timer-toggle-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+  transition: color 0.22s var(--ease);
+}
+
+.tsa--timer-toggle-btn[aria-pressed="true"] .tsa--timer-toggle-icon {
+  color: var(--accent-deeper);
+}
+
+/* Duration picker panel */
+.tsa--timer-duration-picker {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.1);
+  animation: tsa--timerPickerIn 0.22s var(--ease);
+  max-width: 400px;
+}
+
+.tsa--timer-duration-picker[aria-hidden="true"] {
+  display: none;
+}
+
+@keyframes tsa--timerPickerIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tsa--timer-duration-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-2);
+}
+
+.tsa--timer-duration-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tsa--timer-dur-btn {
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease);
+  letter-spacing: 0.03em;
+}
+
+.tsa--timer-dur-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-1);
+  transform: translateY(-1px);
+}
+
+.tsa--timer-dur-btn--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-1);
+  box-shadow: 0 2px 0 var(--accent-dark);
+}
+
+.tsa--timer-dur-btn--active:hover {
+  background: #ffd054;
+  transform: translateY(-1px);
+}
+
+.tsa--timer-dur-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tsa--timer-duration-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* =========================================================
+   PER-QUESTION TIMER WIDGET — Question Screen
+   ========================================================= */
+
+.tsa--q-timer-wrap {
+  max-width: 760px;
+  margin: 14px auto 0;
+  padding: 0 24px;
+  width: 100%;
+}
+
+.tsa--q-timer-wrap[hidden] {
+  display: none !important;
+}
+
+.tsa--q-timer-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+/* Warning state */
+.tsa--q-timer-inner.tsa--timer--warn {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+/* Danger state */
+.tsa--q-timer-inner.tsa--timer--danger {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  animation: tsa--timerShake 0.4s var(--ease);
+}
+
+@keyframes tsa--timerShake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+/* SVG arc */
+.tsa--q-timer-arc-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.tsa--q-timer-svg {
+  width: 48px;
+  height: 48px;
+}
+
+.tsa--q-timer-track {
+  stroke: var(--surface-3);
+}
+
+.tsa--q-timer-progress {
+  stroke: var(--accent);
+  transition: stroke-dashoffset 0.9s linear, stroke 0.3s ease;
+}
+
+.tsa--q-timer-inner.tsa--timer--warn  .tsa--q-timer-progress { stroke: #f59e0b; }
+.tsa--q-timer-inner.tsa--timer--danger .tsa--q-timer-progress { stroke: #ef4444; }
+
+/* Countdown number inside arc */
+.tsa--q-timer-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.tsa--q-timer-inner.tsa--timer--warn  .tsa--q-timer-count { color: #92400e; }
+.tsa--q-timer-inner.tsa--timer--danger .tsa--q-timer-count { color: #991b1b; }
+
+/* Meta: label + linear bar */
+.tsa--q-timer-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tsa--q-timer-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.tsa--q-timer-bar-track {
+  height: 5px;
+  background: var(--surface-3);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.tsa--q-timer-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: var(--accent);
+  transition: width 0.9s linear, background 0.3s ease;
+  width: 100%;
+  transform-origin: left;
+}
+
+.tsa--q-timer-inner.tsa--timer--warn  .tsa--q-timer-bar-fill { background: #f59e0b; }
+.tsa--q-timer-inner.tsa--timer--danger .tsa--q-timer-bar-fill { background: #ef4444; }
+
+/* Header pill: tiny timer badge shown when timer is running */
+.tsa--header-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 198, 47, 0.12);
+  border: 1.5px solid rgba(255, 198, 47, 0.35);
+  border-radius: 100px;
+  padding: 5px 12px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-deeper);
+  letter-spacing: 0.04em;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.tsa--header-timer-badge svg {
+  flex-shrink: 0;
+}
+
+.tsa--header-timer-badge.warn {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #92400e;
+}
+
+.tsa--header-timer-badge.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #991b1b;
+}
+
+@media (max-width: 480px) {
+  .tsa--q-timer-inner {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+
+  .tsa--q-timer-arc-wrap,
+  .tsa--q-timer-svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .tsa--q-timer-count {
+    font-size: 11px;
+  }
+
+  .tsa--timer-duration-btns {
+    gap: 6px;
+  }
+
+  .tsa--timer-dur-btn {
+    padding: 7px 12px;
+    font-size: 11px;
   }
 }

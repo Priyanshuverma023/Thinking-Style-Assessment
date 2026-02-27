@@ -16,7 +16,6 @@
     { id: 'practical',  label: 'Practical',  color: '#059669' },
   ];
 
-
   const LIKERT_SCALE = [
     { label: 'Strongly Agree',    value: 5, color: '#22c55e' },
     { label: 'Agree',             value: 4, color: '#86efac' },
@@ -40,12 +39,12 @@
     truefalse: 'True or False',
   };
 
-  /* answer-label lookup used by PDF export */
+  const TIMER_CIRCUMFERENCE = 138.23;
+
   function answerLabel(q, value) {
     if (value === 'skipped') return 'Skipped';
     if (value === undefined || value === null) return 'Not answered';
     if (q.type === 'truefalse') {
-      /* we stored which key (true/false) was pressed in state.answeredKey */
       const key = (state.answeredKey || {})[q.id];
       if (key) return key.charAt(0).toUpperCase() + key.slice(1);
       return value === 5 ? 'True' : 'False';
@@ -62,13 +61,11 @@
     return opt ? opt.label : String(value);
   }
 
-  /* maps choice option score (1-4) to 1-5 numeric range */
   function choiceToScore(s) { return 1 + ((s - 1) / 3) * 4; }
 
   const QUESTION_POOLS = {
 
     analytical: [
-      /* LIKERT */
       { id:'an_l01', type:'likert', text:'When I evaluate an argument, I first check whether its conclusion actually follows from its stated premises.' },
       { id:'an_l02', type:'likert', text:'I can distinguish between a strong argument supported by evidence and a weak argument that relies on emotion or irrelevant facts.' },
       { id:'an_l03', type:'likert', text:'When someone makes a claim, I naturally ask what evidence would be needed to confirm or refute it.' },
@@ -87,8 +84,6 @@
       { id:'an_l16', type:'likert', text:'I evaluate risks by estimating probabilities and magnitudes rather than relying on instinct.' },
       { id:'an_l17', type:'likert', text:'I regularly revise my conclusions when new evidence emerges, even if it contradicts my prior beliefs.' },
       { id:'an_l18', type:'likert', text:'I cross-check results using alternative methods to verify accuracy before sharing findings.' },
-
-      /* FREQ */
       { id:'an_f01', type:'freq', text:'I notice logical inconsistencies or gaps in arguments before others point them out.' },
       { id:'an_f02', type:'freq', text:'I systematically test hypotheses by changing one variable at a time rather than making multiple changes at once.' },
       { id:'an_f03', type:'freq', text:'I find it natural to define edge cases and boundary conditions before beginning any implementation.' },
@@ -101,8 +96,6 @@
       { id:'an_f10', type:'freq', text:'I ask "why does this work?" rather than accepting a working solution at face value.' },
       { id:'an_f11', type:'freq', text:'I define clear, measurable success criteria before starting a complex task.' },
       { id:'an_f12', type:'freq', text:'I separate emotions from analytical tasks, treating them as distinct activities.' },
-
-      /* CHOICE */
       { id:'an_c01', type:'choice',
         text:'A colleague presents data showing a 30% increase in sales after a new campaign. They conclude the campaign caused the increase. What do you do first?',
         options:[
@@ -175,8 +168,6 @@
           { label:'Accept the logic but present alternative conclusions alongside it', score:2 },
           { label:'Share it with a neutral third party to validate your assessment', score:3 },
         ]},
-
-      /* TRUE/FALSE */
       { id:'an_t01', type:'truefalse', correct:'true',
         text:'A logically valid argument can still have a false conclusion if one of its premises is false.' },
       { id:'an_t02', type:'truefalse', correct:'false',
@@ -192,7 +183,6 @@
     ],
 
     creative: [
-      /* LIKERT */
       { id:'cr_l01', type:'likert', text:'I often approach a problem by reframing it completely rather than solving it as originally stated.' },
       { id:'cr_l02', type:'likert', text:'I enjoy generating large numbers of ideas, even impractical ones, before narrowing down.' },
       { id:'cr_l03', type:'likert', text:'I naturally make connections between ideas from completely different domains.' },
@@ -211,8 +201,6 @@
       { id:'cr_l16', type:'likert', text:'I find inspiration in domains far outside my immediate field of expertise.' },
       { id:'cr_l17', type:'likert', text:'I can hold contradictory ideas in mind simultaneously without immediately resolving the tension.' },
       { id:'cr_l18', type:'likert', text:'I experiment as a thinking tool — I try things not to get answers but to discover better questions.' },
-
-      /* FREQ */
       { id:'cr_f01', type:'freq', text:'I generate ideas that surprise even people who know me well.' },
       { id:'cr_f02', type:'freq', text:'I make unexpected connections between ideas while doing apparently unrelated activities.' },
       { id:'cr_f03', type:'freq', text:'I question the framing or constraints of a problem before trying to solve it.' },
@@ -225,8 +213,6 @@
       { id:'cr_f10', type:'freq', text:'I present creative ideas in ways that help others visualise them, even without finished materials.' },
       { id:'cr_f11', type:'freq', text:'I use constraints deliberately as creative catalysts — asking "What if we could only use X?"' },
       { id:'cr_f12', type:'freq', text:'I generate at least three distinct alternatives before committing to a creative direction.' },
-
-      /* CHOICE */
       { id:'cr_c01', type:'choice',
         text:'You are asked to redesign an internal process that everyone has used for five years. Your first instinct is to:',
         options:[
@@ -299,8 +285,6 @@
           { label:'Use visuals — diagrams or illustrations — to carry the meaning', score:3 },
           { label:'Provide a glossary of terms so they can follow accurately', score:1 },
         ]},
-
-      /* TRUE/FALSE */
       { id:'cr_t01', type:'truefalse', correct:'true',
         text:'Divergent thinking — generating many different ideas — is more valuable in the early stages of a creative process than in the later stages.' },
       { id:'cr_t02', type:'truefalse', correct:'false',
@@ -315,11 +299,7 @@
         text:'Creative thinking is a fixed trait — you either have it or you do not.' },
     ],
 
-    /* ============================================================
-       PRACTICAL  (18 likert · 12 freq · 9 choice · 6 truefalse)
-    ============================================================ */
     practical: [
-      /* LIKERT */
       { id:'pr_l01', type:'likert', text:'When I start a project, I define clear milestones before writing a single line of work.' },
       { id:'pr_l02', type:'likert', text:'I naturally identify the minimum viable version of a deliverable before adding scope.' },
       { id:'pr_l03', type:'likert', text:'I am comfortable making quick decisions under pressure even when information is incomplete.' },
@@ -338,8 +318,6 @@
       { id:'pr_l16', type:'likert', text:'I break goals into the smallest possible meaningful tasks so progress is visible daily.' },
       { id:'pr_l17', type:'likert', text:'I evaluate trade-offs explicitly — cost vs. benefit, speed vs. quality — rather than optimising for one variable.' },
       { id:'pr_l18', type:'likert', text:'I regularly reflect on my own working habits and adjust them to improve personal effectiveness.' },
-
-      /* FREQ */
       { id:'pr_f01', type:'freq', text:'I deliver work by the deadline I committed to, without needing reminders.' },
       { id:'pr_f02', type:'freq', text:'I raise risks or blockers as soon as I identify them, rather than waiting until they become problems.' },
       { id:'pr_f03', type:'freq', text:'I actively remove steps from processes that do not add clear value.' },
@@ -352,8 +330,6 @@
       { id:'pr_f10', type:'freq', text:'I reduce the scope of a deliverable when the deadline cannot move rather than delivering late.' },
       { id:'pr_f11', type:'freq', text:'I identify who needs to be involved in a decision and get them in the room early.' },
       { id:'pr_f12', type:'freq', text:'I run a quick retrospective after completing significant work to capture what I would do differently.' },
-
-      /* CHOICE */
       { id:'pr_c01', type:'choice',
         text:'You have three equally important tasks and only time to complete one today. You:',
         options:[
@@ -426,8 +402,6 @@
           { label:'Add new features to extend what was built and hope to cover the gap', score:1 },
           { label:'Analyse where the brief went wrong before deciding next steps', score:3 },
         ]},
-
-      /* TRUE/FALSE */
       { id:'pr_t01', type:'truefalse', correct:'false',
         text:'Delivering a project on time and on budget is always a sign that the project was successful.' },
       { id:'pr_t02', type:'truefalse', correct:'true',
@@ -442,10 +416,6 @@
         text:'Proactively raising a problem early is nearly always better than waiting until it becomes a crisis.' },
     ],
   };
-
-  /* ===========================================================
-     INSIGHTS & CARDS
-  =========================================================== */
 
   const INSIGHTS = {
     analytical: {
@@ -484,14 +454,132 @@
       mode: ASSESSMENT_MODES[0],
       questions: [],
       answers: {},
-      answeredKey: {},  /* tracks 'true'|'false' key pressed for truefalse questions */
+      answeredKey: {},
       flagged: new Set(),
       activeCatIdx: 0,
       activeQIdx: 0,
       locked: false,
       reviewOnlyFlagged: false,
+      timerEnabled: false,
+      timerDuration: 45,
     };
   }
+
+  /* ===========================================================
+     TIMER ENGINE
+  =========================================================== */
+
+  const timerState = {
+    intervalId:    null,
+    remaining:     0,
+    total:         0,
+    active:        false,
+  };
+
+  function timerStart(seconds) {
+    timerStop();
+    if (!state.timerEnabled) return;
+
+    timerState.total     = seconds;
+    timerState.remaining = seconds;
+    timerState.active    = true;
+
+    updateTimerUI(seconds, seconds);
+
+    timerState.intervalId = setInterval(() => {
+      timerState.remaining -= 1;
+
+      if (timerState.remaining <= 0) {
+        timerStop();
+        onTimerExpired();
+        return;
+      }
+
+      updateTimerUI(timerState.remaining, timerState.total);
+    }, 1000);
+  }
+
+  function timerStop() {
+    if (timerState.intervalId !== null) {
+      clearInterval(timerState.intervalId);
+      timerState.intervalId = null;
+    }
+    timerState.active = false;
+  }
+
+  function timerReset() {
+    timerStop();
+    if (dom.qTimerWrap) dom.qTimerWrap.hidden = true;
+    if (dom.headerRight) {
+      const badge = dom.headerRight.querySelector('.tsa--header-timer-badge');
+      if (badge) badge.remove();
+    }
+  }
+
+  function updateTimerUI(remaining, total) {
+    if (!dom.qTimerWrap || !dom.qTimerCount || !dom.qTimerBar || !dom.timerArcProgress) return;
+
+    const pct        = remaining / total;
+    const offset     = TIMER_CIRCUMFERENCE * (1 - pct);
+    const isWarn     = remaining <= Math.ceil(total * 0.4) && remaining > Math.ceil(total * 0.2);
+    const isDanger   = remaining <= Math.ceil(total * 0.2);
+    const innerEl    = dom.qTimerWrap.querySelector('.tsa--q-timer-inner');
+
+    dom.qTimerCount.textContent          = String(remaining);
+    dom.timerArcProgress.style.strokeDashoffset = String(offset);
+    dom.qTimerBar.style.width            = (pct * 100).toFixed(1) + '%';
+
+    if (innerEl) {
+      innerEl.classList.toggle('tsa--timer--warn',   isWarn);
+      innerEl.classList.toggle('tsa--timer--danger', isDanger);
+    }
+
+    updateHeaderBadge(remaining, isWarn, isDanger);
+  }
+
+  function updateHeaderBadge(remaining, isWarn, isDanger) {
+    if (!dom.headerRight) return;
+    let badge = dom.headerRight.querySelector('.tsa--header-timer-badge');
+
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'tsa--header-timer-badge';
+      badge.setAttribute('aria-live', 'off');
+      badge.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/>
+          <path d="M5 3 2 6"/><path d="m22 6-3-3"/>
+        </svg>
+        <span class="tsa--header-badge-num"></span>s
+      `;
+      dom.headerRight.appendChild(badge);
+    }
+
+    const numEl = badge.querySelector('.tsa--header-badge-num');
+    if (numEl) numEl.textContent = String(remaining);
+    badge.classList.toggle('warn',   isWarn);
+    badge.classList.toggle('danger', isDanger);
+  }
+
+  function onTimerExpired() {
+    if (!state.timerEnabled) return;
+    const q = activeQuestion();
+    if (!q) return;
+
+    if (state.answers[q.id] !== undefined && state.answers[q.id] !== null) {
+      advanceAuto();
+      return;
+    }
+
+    showToast('Time is up — question skipped automatically.', 'warning');
+    handleSkip();
+  }
+
+  /* ===========================================================
+     DOM CACHE
+  =========================================================== */
 
   const dom = {};
 
@@ -516,6 +604,15 @@
     dom.errName            = document.getElementById('errName');
     dom.btnBegin           = document.getElementById('btnBegin');
     dom.headerRight        = document.getElementById('headerRight');
+
+    dom.btnTimerToggle     = document.getElementById('btnTimerToggle');
+    dom.timerToggleText    = document.getElementById('timerToggleText');
+    dom.timerDurationPicker = document.getElementById('timerDurationPicker');
+
+    dom.qTimerWrap         = document.getElementById('qTimerWrap');
+    dom.qTimerCount        = document.getElementById('qTimerCount');
+    dom.qTimerBar          = document.getElementById('qTimerBar');
+    dom.timerArcProgress   = document.getElementById('timerArcProgress');
 
     dom.catTabs            = document.getElementById('catTabs');
     dom.qDots              = document.getElementById('qDots');
@@ -551,6 +648,9 @@
     dom.btnPdf             = document.getElementById('btnPdf');
   }
 
+  /* ===========================================================
+     UTILITIES
+  =========================================================== */
 
   function escHtml(str) {
     return String(str)
@@ -626,12 +726,18 @@
     const target = document.getElementById(id);
     if (target) { target.classList.add('active'); target.hidden = false; }
     state.phase = id;
+
+    /* Stop timer when leaving question screen */
+    if (id !== 'screenQuestions') {
+      timerStop();
+      if (dom.qTimerWrap) dom.qTimerWrap.hidden = true;
+      const badge = dom.headerRight ? dom.headerRight.querySelector('.tsa--header-timer-badge') : null;
+      if (badge) badge.remove();
+    }
   }
 
   /* ===========================================================
      QUESTION BUILDING
-     Pool entries are full objects {id, type, text, ...}.
-     We annotate each picked question with catId and catIdx.
   =========================================================== */
 
   function buildQuestions(mode) {
@@ -656,9 +762,6 @@
 
   /* ===========================================================
      SCORING
-     All stored answer values are numeric 1–5 regardless of type.
-     truefalse: correct → 5, wrong → 1
-     choice: choiceToScore(opt.score) maps score 1-4 → value 1-5
   =========================================================== */
 
   function catScore(catIdx) {
@@ -757,11 +860,30 @@
       dom.modeGrid.appendChild(card);
     });
     updateStatDisplay();
+    syncTimerToggleUI();
     showScreen('screenWelcome');
   }
 
   function updateStatDisplay() {
     if (dom.statQuestions) dom.statQuestions.textContent = state.mode.questionsPerCat * CATEGORIES.length;
+  }
+
+  /* Sync the toggle button visual to current state.timerEnabled */
+  function syncTimerToggleUI() {
+    if (!dom.btnTimerToggle) return;
+    const enabled = state.timerEnabled;
+    dom.btnTimerToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    if (dom.timerToggleText) dom.timerToggleText.textContent = enabled ? 'Timer On' : 'Timer Off';
+    if (dom.timerDurationPicker) {
+      dom.timerDurationPicker.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+    }
+    /* Sync active duration button */
+    if (dom.timerDurationPicker) {
+      dom.timerDurationPicker.querySelectorAll('.tsa--timer-dur-btn').forEach(btn => {
+        const sec = parseInt(btn.dataset.seconds, 10);
+        btn.classList.toggle('tsa--timer-dur-btn--active', sec === state.timerDuration);
+      });
+    }
   }
 
   /* ===========================================================
@@ -773,6 +895,24 @@
     renderDots();
     renderQuestionCard();
     updateCompletionStatus();
+
+    /* Show / hide timer widget */
+    if (dom.qTimerWrap) {
+      dom.qTimerWrap.hidden = !state.timerEnabled;
+    }
+
+    /* Start fresh timer for this question unless already answered */
+    if (state.timerEnabled) {
+      const q = activeQuestion();
+      const alreadyAnswered = q && state.answers[q.id] !== undefined && state.answers[q.id] !== null;
+      if (alreadyAnswered) {
+        timerStop();
+        updateTimerUI(state.timerDuration, state.timerDuration);
+      } else {
+        timerStart(state.timerDuration);
+      }
+    }
+
     showScreen('screenQuestions');
   }
 
@@ -806,9 +946,9 @@
       const ans     = state.answers[q.id];
       const flagged = state.flagged.has(q.id);
       let cls = 'tsa--dot';
-      if (i === state.activeQIdx)               cls += ' active';
-      else if (flagged)                         cls += ' flagged';
-      else if (ans === 'skipped')               cls += ' skipped';
+      if (i === state.activeQIdx)                cls += ' active';
+      else if (flagged)                          cls += ' flagged';
+      else if (ans === 'skipped')                cls += ' skipped';
       else if (ans !== undefined && ans !== null) cls += ' answered';
       dot.className = cls;
       dot.setAttribute('type', 'button');
@@ -859,7 +999,6 @@
     renderOptions(q, curAns);
   }
 
-
   function renderOptions(q, curAns) {
     dom.optionsList.innerHTML = '';
     if (q.type === 'truefalse') {
@@ -873,7 +1012,6 @@
     }
   }
 
-  /* ---- Likert / Frequency ---- */
   function renderScaleOptions(q, scale, curAns) {
     const LETTERS = ['A', 'B', 'C', 'D', 'E'];
     scale.forEach((opt, i) => {
@@ -894,7 +1032,6 @@
     });
   }
 
-  /* ---- Scenario / Multiple Choice (shuffled) ---- */
   function renderChoiceOptions(q, curAns) {
     const shuffled = shuffle(q.options);
     const LETTERS  = ['A', 'B', 'C', 'D'];
@@ -916,7 +1053,6 @@
     });
   }
 
-  /* ---- True / False ---- */
   function renderTrueFalseOptions(q, curAns) {
     const pressedKey = (state.answeredKey || {})[q.id] || null;
     const TF = [
@@ -943,6 +1079,7 @@
   function handleAnswer(q, value) {
     if (state.locked) return;
     state.locked = true;
+    timerStop();
     state.answers[q.id] = value;
 
     dom.optionsList.querySelectorAll('.tsa--option').forEach(btn => {
@@ -962,6 +1099,7 @@
   function handleTrueFalseAnswer(q, value, key) {
     if (state.locked) return;
     state.locked = true;
+    timerStop();
     state.answers[q.id] = value;
     state.answeredKey[q.id] = key;
 
@@ -1043,8 +1181,8 @@
   }
 
   function advanceAuto() {
-    const qs      = activeQuestions();
-    const isLastQ = state.activeQIdx === qs.length - 1;
+    const qs        = activeQuestions();
+    const isLastQ   = state.activeQIdx === qs.length - 1;
     const isLastCat = state.activeCatIdx === CATEGORIES.length - 1;
 
     if (state.reviewOnlyFlagged) {
@@ -1069,11 +1207,13 @@
       renderQuestions();
       showToast(`Moving to ${CATEGORIES[state.activeCatIdx].label} Thinking`, 'info');
     } else {
+      timerStop();
       renderReview();
     }
   }
 
   function handlePrev() {
+    timerStop();
     if (state.reviewOnlyFlagged) {
       const prev = prevFlaggedPosition();
       if (prev) {
@@ -1093,8 +1233,9 @@
   }
 
   function handleNext() {
-    const qs      = activeQuestions();
-    const isLastQ = state.activeQIdx === qs.length - 1;
+    timerStop();
+    const qs        = activeQuestions();
+    const isLastQ   = state.activeQIdx === qs.length - 1;
     const isLastCat = state.activeCatIdx === CATEGORIES.length - 1;
 
     if (state.reviewOnlyFlagged) { advanceAuto(); return; }
@@ -1111,20 +1252,16 @@
   }
 
   function handleSkip() {
+    timerStop();
     const q = activeQuestion();
-    if (!q) return;
+    if(!q) return;
     state.answers[q.id] = 'skipped';
-    renderDots();
-    renderCatTabs();
     updateCompletionStatus();
     advanceAuto();
   }
 
-  /* ===========================================================
-     RENDER: REVIEW
-  =========================================================== */
-
   function renderReview() {
+    timerReset();
     state.reviewOnlyFlagged = false;
 
     const answered   = answeredCount();
@@ -1210,22 +1347,23 @@
   =========================================================== */
 
   function renderResults() {
+    timerReset();
     showLoader();
     setTimeout(() => {
       try {
         const scores   = allScores();
         const overall  = overallPct();
-        const dom_type = dominantType();
+        const domType  = dominantType();
         const dateStr  = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
         dom.resMeta.textContent       = `${state.userName} · ${dateStr}`;
         dom.resCircle.style.setProperty('--pct', overall);
         dom.resOverallPct.textContent  = overall + '%';
-        dom.resOverallType.textContent = dom_type ? INSIGHTS[dom_type.cat.id].type : '—';
+        dom.resOverallType.textContent = domType ? INSIGHTS[domType.cat.id].type : '—';
 
         renderScoreBars(scores);
-        renderInsight(dom_type);
-        renderDetailCards(dom_type);
+        renderInsight(domType);
+        renderDetailCards(domType);
         showScreen('screenResults');
       } finally {
         hideLoader();
@@ -1312,7 +1450,7 @@
         let   y    = 0;
 
         function newPage() { doc.addPage(); y = 18; }
-        function checkPage(need = 20) { if (y + need > PH - 14) newPage(); }
+        function checkPage(need) { if (y + (need || 20) > PH - 14) newPage(); }
 
         function hexRgb(hex) {
           const h = hex.replace('#', '');
@@ -1333,7 +1471,6 @@
         const dominant = dominantType();
         const dateStr  = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        /* COVER */
         doc.setFillColor(17, 17, 16); doc.rect(0, 0, PW, 52, 'F');
         doc.setFillColor(255, 198, 47); doc.rect(0, 50, PW, 2.5, 'F');
         doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(255, 255, 255);
@@ -1344,7 +1481,13 @@
         doc.text('EasyShiksha Internal Tool', PW / 2, 41, { align: 'center' });
 
         y = 64;
-        [['Name:', state.userName], ['Date:', dateStr], ['Mode:', state.mode.label + ' (' + state.mode.detail + ')']].forEach(([lbl, val]) => {
+        const meta = [
+          ['Name:', state.userName],
+          ['Date:', dateStr],
+          ['Mode:', state.mode.label + ' (' + state.mode.detail + ')'],
+          ['Timer:', state.timerEnabled ? state.timerDuration + 's per question' : 'Disabled'],
+        ];
+        meta.forEach(([lbl, val]) => {
           doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
           doc.text(lbl, ML, y);
           doc.setFont('helvetica', 'bold'); doc.setTextColor(17, 17, 16);
@@ -1352,7 +1495,6 @@
           y += 8;
         });
 
-        /* Overall circle */
         y += 4;
         const cx = PW / 2, cy = y + 22;
         doc.setFillColor(255, 198, 47); doc.circle(cx, cy, 22, 'F');
@@ -1368,7 +1510,6 @@
         }
         y = cy + 36;
 
-        /* Score bars */
         doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(17, 17, 16);
         doc.text('Category Scores', ML, y); y += 10;
         scores.forEach(({ cat, score }) => {
@@ -1385,7 +1526,6 @@
           y += 21;
         });
 
-        /* Insight page */
         if (dominant) {
           newPage();
           const info = INSIGHTS[dominant.cat.id];
@@ -1429,7 +1569,6 @@
           });
         }
 
-        /* Response log */
         newPage();
         doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(17, 17, 16);
         doc.text('Response Log', ML, y); y += 10;
@@ -1444,12 +1583,12 @@
           y += 14;
 
           questionsForCat(CATEGORIES.indexOf(cat)).forEach((q, qi) => {
-            const ans      = state.answers[q.id];
-            const label    = answerLabel(q, ans);
-            const isGood   = ans !== undefined && ans !== null && ans !== 'skipped';
+            const ans       = state.answers[q.id];
+            const label     = answerLabel(q, ans);
+            const isGood    = ans !== undefined && ans !== null && ans !== 'skipped';
             const [r, g, b] = isGood ? hexRgb(cat.color) : [150, 150, 150];
-            const typeTag  = TYPE_LABELS[q.type] || '';
-            const txtLines = doc.splitTextToSize(`${qi + 1}. [${typeTag}] ${q.text}`, CW - 6);
+            const typeTag   = TYPE_LABELS[q.type] || '';
+            const txtLines  = doc.splitTextToSize(`${qi + 1}. [${typeTag}] ${q.text}`, CW - 6);
             checkPage(txtLines.length * 5 + 14);
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(40, 40, 40);
             doc.text(txtLines, ML + 2, y);
@@ -1461,7 +1600,6 @@
           y += 4;
         });
 
-        /* Page numbers */
         const pageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
           doc.setPage(i);
@@ -1474,7 +1612,7 @@
         doc.save(fileName);
         showToast('PDF exported successfully!', 'success');
 
-      } catch (err) {
+      } catch (_err) {
         showToast('PDF generation failed. Please try again.', 'error');
       } finally {
         setTimeout(() => {
@@ -1486,17 +1624,23 @@
     }, 200);
   }
 
+  /* ===========================================================
+     SESSION PERSISTENCE
+  =========================================================== */
+
   function saveSession() {
     try {
       const payload = JSON.stringify({
         version: 2,
         data: {
-          userName: state.userName,
-          mode: state.mode.id,
-          questions: state.questions,
-          answers: state.answers,
-          answeredKey: state.answeredKey || {},
-          flagged: Array.from(state.flagged),
+          userName:     state.userName,
+          mode:         state.mode.id,
+          questions:    state.questions,
+          answers:      state.answers,
+          answeredKey:  state.answeredKey || {},
+          flagged:      Array.from(state.flagged),
+          timerEnabled: state.timerEnabled,
+          timerDuration: state.timerDuration,
         },
         settings: {},
       });
@@ -1507,7 +1651,12 @@
   function restart() {
     showConfirm('Start New Assessment?', 'All current progress will be lost. This cannot be undone.').then(confirmed => {
       if (!confirmed) return;
+      timerReset();
+      const prevTimer    = state.timerEnabled;
+      const prevDuration = state.timerDuration;
       state = buildInitialState();
+      state.timerEnabled  = prevTimer;
+      state.timerDuration = prevDuration;
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) { }
       dom.inpName.value = '';
       dom.errName.textContent = '';
@@ -1515,7 +1664,39 @@
     });
   }
 
+  /* ===========================================================
+     EVENT BINDING
+  =========================================================== */
+
   function bindEvents() {
+
+    /* ----- Timer toggle button ----- */
+    if (dom.btnTimerToggle) {
+      dom.btnTimerToggle.addEventListener('click', () => {
+        state.timerEnabled = !state.timerEnabled;
+        syncTimerToggleUI();
+        if (state.timerEnabled) {
+          showToast(`Timer enabled — ${state.timerDuration}s per question`, 'info');
+        } else {
+          showToast('Timer disabled', 'info');
+        }
+      });
+    }
+
+    /* ----- Duration picker buttons ----- */
+    if (dom.timerDurationPicker) {
+      dom.timerDurationPicker.addEventListener('click', e => {
+        const btn = e.target.closest('.tsa--timer-dur-btn');
+        if (!btn) return;
+        const sec = parseInt(btn.dataset.seconds, 10);
+        if (isNaN(sec)) return;
+        state.timerDuration = sec;
+        syncTimerToggleUI();
+        showToast(`Timer set to ${sec}s per question`, 'info');
+      });
+    }
+
+    /* ----- Welcome form ----- */
     dom.welcomeForm.addEventListener('submit', e => {
       e.preventDefault();
       const name = dom.inpName.value.trim();
@@ -1571,6 +1752,7 @@
         showToast(`Answer at least 50% per category. Short: ${shortfallMessage()}`, 'warning');
         return;
       }
+      timerStop();
       renderReview();
     });
 
@@ -1635,7 +1817,24 @@
         }
       }
     });
+
+    /* Stop timer if page is hidden (tab switch) — resume when visible */
+    document.addEventListener('visibilitychange', () => {
+      if (!state.timerEnabled || state.phase !== 'screenQuestions') return;
+      if (document.hidden) {
+        timerStop();
+      } else {
+        const q = activeQuestion();
+        if (q && (state.answers[q.id] === undefined || state.answers[q.id] === null)) {
+          timerStart(timerState.remaining > 0 ? timerState.remaining : state.timerDuration);
+        }
+      }
+    });
   }
+
+  /* ===========================================================
+     INIT
+  =========================================================== */
 
   function init() {
     cacheDOM();
