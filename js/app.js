@@ -1,4 +1,3 @@
-'use strict';
 
 (function () {
 
@@ -441,9 +440,6 @@
     },
   };
 
-  /* ===========================================================
-     STATE
-  =========================================================== */
 
   let state = buildInitialState();
 
@@ -462,6 +458,8 @@
       reviewOnlyFlagged: false,
       timerEnabled: false,
       timerDuration: 45,
+      timeLogs: {},
+      _qStartTime: null,
     };
   }
 
@@ -568,10 +566,14 @@
     const q = activeQuestion();
     if (!q) return;
 
+    // If already answered, just advance
     if (state.answers[q.id] !== undefined && state.answers[q.id] !== null) {
       advanceAuto();
       return;
     }
+
+    // Force-release any stale lock before auto-skip
+    state.locked = false;
 
     showToast('Time is up — question skipped automatically.', 'warning');
     handleSkip();
@@ -914,6 +916,7 @@
     }
 
     showScreen('screenQuestions');
+    state._qStartTime = Date.now();
   }
 
   function renderCatTabs() {
@@ -1032,7 +1035,7 @@
     });
   }
 
-  function renderChoiceOptions(q, curAns) {
+function renderChoiceOptions(q, curAns) {
     const shuffled = shuffle(q.options);
     const LETTERS  = ['A', 'B', 'C', 'D'];
     shuffled.forEach((opt, i) => {
@@ -1040,8 +1043,9 @@
       const isSelected = curAns !== null && curAns !== 'skipped' &&
                          Math.abs(curAns - score) < 0.01;
       const btn = document.createElement('button');
-      btn.type      = 'button';
-      btn.className = `tsa--option tsa--option-choice${isSelected ? ' selected' : ''}`;
+      btn.type          = 'button';
+      btn.className     = `tsa--option tsa--option-choice${isSelected ? ' selected' : ''}`;
+      btn.dataset.value = String(score);        // ← ADD THIS LINE
       btn.setAttribute('role', 'radio');
       btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
       btn.innerHTML = `
@@ -1052,7 +1056,6 @@
       dom.optionsList.appendChild(btn);
     });
   }
-
   function renderTrueFalseOptions(q, curAns) {
     const pressedKey = (state.answeredKey || {})[q.id] || null;
     const TF = [
@@ -1078,8 +1081,14 @@
 
   function handleAnswer(q, value) {
     if (state.locked) return;
+    if(state.answers[q.id] === 'skipped') return;
     state.locked = true;
     timerStop();
+    if(state._qStartTime) {
+      const secs = Math.round((Date.now() - state._qStartTime) / 1000);
+      state.timeLogs[q.id] = secs;
+      state._qStartTime = null;
+    }
     state.answers[q.id] = value;
 
     dom.optionsList.querySelectorAll('.tsa--option').forEach(btn => {
@@ -1098,8 +1107,14 @@
 
   function handleTrueFalseAnswer(q, value, key) {
     if (state.locked) return;
+    if(state.answers[q.id] === 'skipped') return;
     state.locked = true;
     timerStop();
+    if(state._qStartTime) {
+      const secs = Math.round((Date.now() - state._qStartTime) / 1000);
+      state.timeLogs[q.id] = secs;
+      state._qStartTime = null;
+    }
     state.answers[q.id] = value;
     state.answeredKey[q.id] = key;
 
@@ -1250,16 +1265,25 @@
       advanceAuto();
     }
   }
-
-  function handleSkip() {
-    timerStop();
-    const q = activeQuestion();
-    if(!q) return;
-    state.answers[q.id] = 'skipped';
-    updateCompletionStatus();
+function handleSkip() {
+  timerStop();
+  state.locked = false;
+  const q = activeQuestion();
+  if (!q) return;
+  if (state.answers[q.id] !== undefined && state.answers[q.id] !== null) {
     advanceAuto();
+    return;
   }
-
+  // Log time even for skipped questions
+  if (state._qStartTime) {
+    const secs = Math.round((Date.now() - state._qStartTime) / 1000);
+    state.timeLogs[q.id] = secs;
+    state._qStartTime = null;
+  }
+  state.answers[q.id] = 'skipped';
+  updateCompletionStatus();
+  advanceAuto();
+}
   function renderReview() {
     timerReset();
     state.reviewOnlyFlagged = false;
@@ -1428,202 +1452,404 @@
      PDF EXPORT
   =========================================================== */
 
-  function exportPDF() {
-    const btn = dom.btnPdf;
-    if (btn.disabled) return;
-    btn.disabled    = true;
-    btn.textContent = 'Generating…';
-    showLoader();
+function exportPDF() {
+  'use strict';
 
-    setTimeout(() => {
-      try {
-        if (typeof window.jspdf === 'undefined') {
-          showToast('PDF library not loaded. Please refresh and try again.', 'error');
-          return;
+  const btn = dom.btnPdf;
+
+  // ── PRECONDITION GUARD (before any side-effects) ───────────────────────────
+  if (btn.disabled) return;
+
+  if (typeof window.jspdf === 'undefined') {
+    showToast('PDF library not loaded. Please refresh and try again.', 'error');
+    return;
+  }
+
+  // ── NORMALIZE SHARED STATE ONCE ───────────────────────────────────────────
+  const timeLogs   = (state.timeLogs && typeof state.timeLogs === 'object') ? state.timeLogs : {};
+  const scores     = allScores();
+  const overall    = overallPct();
+  const dominant   = dominantType();
+  const dateStr    = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const totalSecs    = Object.values(timeLogs).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalMins    = Math.floor(totalSecs / 60);
+  const totalRem     = totalSecs % 60;
+  const totalTimeStr = totalMins > 0 ? `${totalMins}m ${totalRem}s` : `${totalSecs}s`;
+
+  // ── SAFE FILENAME ─────────────────────────────────────────────────────────
+  const safeName = (state.userName || 'User')
+    .replace(/[^a-zA-Z0-9\- ]/g, '')
+    .replace(/\s+/g, '_')
+    .trim() || 'User';
+  const fileName = `TSA_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+  // ── SAFE HEX-TO-RGB (validated, no silent NaN) ────────────────────────────
+  function hexRgb(hex) {
+    if (!hex || typeof hex !== 'string') return [0, 0, 0];
+    const h = hex.replace('#', '');
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return [0, 0, 0];
+    return [
+      parseInt(h.slice(0, 2), 16),
+      parseInt(h.slice(2, 4), 16),
+      parseInt(h.slice(4, 6), 16),
+    ];
+  }
+
+  // ── LOCK UI ───────────────────────────────────────────────────────────────
+  btn.disabled    = true;
+  btn.textContent = 'Generating…';
+  showLoader();
+
+  // ── RESTORE UI (always, immediately, no deferred setTimeout) ─────────────
+  function restoreBtn() {
+    hideLoader();
+    btn.disabled  = false;
+    btn.innerHTML = '<img src="assets/svg/download.svg" alt="Export PDF" width="13" height="13"> Export PDF';
+  }
+
+  setTimeout(() => {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const PW  = doc.internal.pageSize.getWidth();
+      const PH  = doc.internal.pageSize.getHeight();
+      const ML  = 18, MR = 18, CW = PW - ML - MR;
+
+      // ── PAGE CONSTANTS ──────────────────────────────────────────────────
+      const PAGE_TOP          = 18;
+      const PAGE_BOTTOM_GUARD = 14;
+      const PAGE1_CONTENT_Y   = 64;
+      let   y                 = 0;
+
+      function newPage()       { doc.addPage(); y = PAGE_TOP; }
+      function checkPage(need) { if (y + (need || 20) > PH - PAGE_BOTTOM_GUARD) newPage(); }
+
+      // ── PROGRESS BAR ────────────────────────────────────────────────────
+      function bar(x, by, w, h, pct, color) {
+        doc.setFillColor(220, 220, 218);
+        doc.roundedRect(x, by, w, h, 1, 1, 'F');
+        if (pct > 0) {
+          doc.setFillColor(...hexRgb(color));
+          doc.roundedRect(x, by, w * pct / 100, h, 1, 1, 'F');
         }
+      }
 
-        const { jsPDF } = window.jspdf;
-        const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const PW   = doc.internal.pageSize.getWidth();
-        const PH   = doc.internal.pageSize.getHeight();
-        const ML   = 18, MR = 18, CW = PW - ML - MR;
-        let   y    = 0;
+      // ══════════════════════════════════════════════════════════════════════
+      // PAGE 1 — HEADER BANNER
+      // ══════════════════════════════════════════════════════════════════════
+      doc.setFillColor(17, 17, 16);
+      doc.rect(0, 0, PW, 52, 'F');
+      doc.setFillColor(255, 198, 47);
+      doc.rect(0, 50, PW, 2.5, 'F');
 
-        function newPage() { doc.addPage(); y = 18; }
-        function checkPage(need) { if (y + (need || 20) > PH - 14) newPage(); }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Thinking Style Assessment', PW / 2, 20, { align: 'center' });
 
-        function hexRgb(hex) {
-          const h = hex.replace('#', '');
-          return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
-        }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(180, 180, 180);
+      doc.text('Psychometric Cognitive Evaluation Report', PW / 2, 31, { align: 'center' });
 
-        function bar(x, by, w, h, pct, color) {
-          doc.setFillColor(220, 220, 218);
-          doc.roundedRect(x, by, w, h, 1, 1, 'F');
-          if (pct > 0) {
-            doc.setFillColor(...hexRgb(color));
-            doc.roundedRect(x, by, w * pct / 100, h, 1, 1, 'F');
-          }
-        }
+      doc.setFontSize(9);
+      doc.setTextColor(255, 198, 47);
+      doc.text('EasyShiksha Internal Tool', PW / 2, 41, { align: 'center' });
 
-        const scores   = allScores();
-        const overall  = overallPct();
-        const dominant = dominantType();
-        const dateStr  = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      // ── META ROWS ────────────────────────────────────────────────────────
+      y = PAGE1_CONTENT_Y;
 
-        doc.setFillColor(17, 17, 16); doc.rect(0, 0, PW, 52, 'F');
-        doc.setFillColor(255, 198, 47); doc.rect(0, 50, PW, 2.5, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(255, 255, 255);
-        doc.text('Thinking Style Assessment', PW / 2, 20, { align: 'center' });
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(180, 180, 180);
-        doc.text('Psychometric Cognitive Evaluation Report', PW / 2, 31, { align: 'center' });
-        doc.setFontSize(9); doc.setTextColor(255, 198, 47);
-        doc.text('EasyShiksha Internal Tool', PW / 2, 41, { align: 'center' });
+      const meta = [
+        ['Name:',       state.userName],
+        ['Date:',       dateStr],
+        ['Mode:',       state.mode.label + ' (' + state.mode.detail + ')'],
+        ['Timer:',      state.timerEnabled ? state.timerDuration + 's per question' : 'Disabled'],
+        ['Total Time:', totalTimeStr],
+      ];
 
-        y = 64;
-        const meta = [
-          ['Name:', state.userName],
-          ['Date:', dateStr],
-          ['Mode:', state.mode.label + ' (' + state.mode.detail + ')'],
-          ['Timer:', state.timerEnabled ? state.timerDuration + 's per question' : 'Disabled'],
-        ];
-        meta.forEach(([lbl, val]) => {
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-          doc.text(lbl, ML, y);
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(17, 17, 16);
-          doc.text(String(val), ML + 28, y);
-          y += 8;
+      meta.forEach(([lbl, val]) => {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text(lbl, ML, y);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(17, 17, 16);
+        doc.text(String(val ?? '—'), ML + 28, y);
+        y += 8;
+      });
+
+      // ── OVERALL SCORE CIRCLE ─────────────────────────────────────────────
+      y += 4;
+      const cx = PW / 2;
+      const cy = y + 22;
+
+      doc.setFillColor(255, 198, 47);
+      doc.circle(cx, cy, 22, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(26);
+      doc.setTextColor(17, 17, 16);
+      doc.text(overall + '%', cx, cy + 2, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      doc.text('Overall Score', cx, cy + 11, { align: 'center' });
+
+      y = cy + 22 + 10;
+
+      // ── DOMINANT TYPE LABEL ──────────────────────────────────────────────
+      if (dominant) {
+        const info      = INSIGHTS[dominant.cat.id];
+        const [r, g, b] = hexRgb(dominant.cat.color);
+        y += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(r, g, b);
+        doc.text(info.type, cx, y, { align: 'center' });
+        y += 12;
+      } else {
+        y += 10;
+      }
+
+      // ── CATEGORY SCORE BARS ──────────────────────────────────────────────
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(17, 17, 16);
+      doc.text('Category Scores', ML, y);
+      y += 10;
+
+      scores.forEach(({ cat, score }) => {
+        checkPage(22);
+        const pct       = score !== null ? score : 0;
+        const [r, g, b] = hexRgb(cat.color);
+
+        doc.setFillColor(248, 248, 246);
+        doc.roundedRect(ML, y - 5, CW, 17, 2, 2, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(17, 17, 16);
+        doc.text(cat.label + ' Thinking', ML + 3, y + 3);
+
+        bar(ML + 72, y - 2, 70, 5, pct, cat.color);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(r, g, b);
+        doc.text(score !== null ? score + '%' : '—', PW - MR - 2, y + 4, { align: 'right' });
+
+        y += 21;
+      });
+
+      // ══════════════════════════════════════════════════════════════════════
+      // PAGE 2 — THINKING PROFILE (with fallback when dominant is null)
+      // ══════════════════════════════════════════════════════════════════════
+      newPage();
+
+      if (dominant) {
+        const info      = INSIGHTS[dominant.cat.id];
+        const [r, g, b] = hexRgb(dominant.cat.color);
+
+        doc.setFillColor(17, 17, 16);
+        doc.rect(ML, y, CW, 10, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 198, 47);
+        doc.text('YOUR THINKING PROFILE', ML + 4, y + 7);
+        y += 16;
+
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        const insightLines = doc.splitTextToSize(info.insight, CW);
+        doc.setTextColor(40, 40, 40);
+        doc.text(insightLines, ML, y);
+        y += insightLines.length * 6 + 10;
+
+        [
+          { title: 'CORE STRENGTHS', items: info.strengths, bg: [240, 253, 244], tc: [22, 101, 52] },
+          { title: 'GROWTH EDGES',   items: info.growth,    bg: [254, 252, 232], tc: [133, 77, 14] },
+        ].forEach(panel => {
+          checkPage(panel.items.length * 8 + 20);
+          const panelH = panel.items.length * 8 + 16;
+          doc.setFillColor(...panel.bg);
+          doc.roundedRect(ML, y, CW, panelH, 3, 3, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...panel.tc);
+          doc.text(panel.title, ML + 5, y + 8);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(40, 40, 40);
+          panel.items.forEach((item, i) => doc.text('• ' + item, ML + 5, y + 17 + i * 8));
+          y += panelH + 8;
+        });
+
+        checkPage(30);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(17, 17, 16);
+        doc.text('Aligned Career Roles', ML, y);
+        y += 8;
+
+        info.roles.forEach(role => {
+          checkPage(10);
+          doc.setFillColor(r, g, b);
+          doc.setGState(doc.GState({ opacity: 0.1 }));
+          doc.roundedRect(ML, y - 4, CW, 9, 2, 2, 'F');
+          doc.setGState(doc.GState({ opacity: 1 }));
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(17, 17, 16);
+          doc.text('• ' + role, ML + 4, y + 2);
+          y += 11;
+        });
+
+      } else {
+        // ── FALLBACK: No dominant type (all categories skipped) ────────────
+        doc.setFillColor(248, 248, 246);
+        doc.roundedRect(ML, y, CW, 32, 3, 3, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(17, 17, 16);
+        doc.text('Thinking Profile Not Available', ML + 5, y + 12);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text(
+          'Complete at least one category to generate your Thinking Profile.',
+          ML + 5, y + 22
+        );
+        y += 40;
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // RESPONSE LOG
+      // ══════════════════════════════════════════════════════════════════════
+      newPage();
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(17, 17, 16);
+      doc.text('Response Log', ML, y);
+      y += 7;
+
+      const RIGHT_END  = 168;
+      const TIME_X     = PW - MR;
+      const Q_INDENT   = ML + 2;
+      const ANS_INDENT = ML + 5;
+      const Q_MAX_W    = RIGHT_END - Q_INDENT;
+      const ANS_MAX_W  = RIGHT_END - ANS_INDENT;
+      const ANS_PREFIX = '>> ';
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(140, 140, 140);
+      doc.text('QUESTION', Q_INDENT, y);
+      doc.text('TIME', TIME_X, y, { align: 'right' });
+      y += 4;
+
+      doc.setFillColor(255, 198, 47);
+      doc.rect(ML, y, CW, 1.5, 'F');
+      y += 8;
+
+      CATEGORIES.forEach(cat => {
+        checkPage(18);
+
+        // Category header bar
+        doc.setFillColor(17, 17, 16);
+        doc.roundedRect(ML, y - 5, CW, 12, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(cat.label + ' Thinking', ML + 4, y + 3);
+
+        // Category total time
+        const catQs        = questionsForCat(CATEGORIES.indexOf(cat));
+        const catTotalSecs = catQs.reduce((s, q) => s + (Number(timeLogs[q.id]) || 0), 0);
+        const catMins      = Math.floor(catTotalSecs / 60);
+        const catRem       = catTotalSecs % 60;
+        const catTimeStr   = catMins > 0 ? `${catMins}m ${catRem}s` : `${catTotalSecs}s`;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(200, 200, 200);
+        doc.text(catTimeStr, TIME_X, y + 3, { align: 'right' });
+        y += 14;
+
+        catQs.forEach((q, qi) => {
+          const ans       = state.answers[q.id];
+          const label     = answerLabel(q, ans);
+          const isGood    = ans !== undefined && ans !== null && ans !== 'skipped';
+          const [r, g, b] = isGood ? hexRgb(cat.color) : [150, 150, 150];
+          const typeTag   = TYPE_LABELS[q.type] || '';
+          const timeSpent = timeLogs[q.id];
+          const timeStr   = timeSpent !== undefined ? `${timeSpent}s` : '—';
+
+          // Compute line heights before checkPage — content widths do not depend on y
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          const qText    = `${qi + 1}. [${typeTag}] ${q.text}`;
+          const txtLines = doc.splitTextToSize(qText, Q_MAX_W);
+          const qBlockH  = txtLines.length * 5.4;
+
+          const ansText  = ANS_PREFIX + label;
+          const ansLines = doc.splitTextToSize(ansText, ANS_MAX_W);
+          const aBlockH  = ansLines.length * 5.4;
+
+          checkPage(qBlockH + aBlockH + 12);
+
+          // Question text
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(40, 40, 40);
+          doc.text(txtLines, Q_INDENT, y);
+
+          // Time badge
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(140, 140, 140);
+          doc.text(timeStr, TIME_X, y, { align: 'right' });
+
+          y += qBlockH + 2;
+
+          // Answer text
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(r, g, b);
+          doc.text(ansLines, ANS_INDENT, y);
+
+          y += aBlockH + 8;
         });
 
         y += 4;
-        const cx = PW / 2, cy = y + 22;
-        doc.setFillColor(255, 198, 47); doc.circle(cx, cy, 22, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(17, 17, 16);
-        doc.text(overall + '%', cx, cy + 4, { align: 'center' });
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80);
-        doc.text('Overall Score', cx, cy + 14, { align: 'center' });
-        if (dominant) {
-          const info = INSIGHTS[dominant.cat.id];
-          const [r, g, b] = hexRgb(dominant.cat.color);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(r, g, b);
-          doc.text(info.type, cx, cy + 24, { align: 'center' });
-        }
-        y = cy + 36;
+      });
 
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(17, 17, 16);
-        doc.text('Category Scores', ML, y); y += 10;
-        scores.forEach(({ cat, score }) => {
-          checkPage(22);
-          const pct = score !== null ? score : 0;
-          const [r, g, b] = hexRgb(cat.color);
-          doc.setFillColor(248, 248, 246);
-          doc.roundedRect(ML, y - 5, CW, 17, 2, 2, 'F');
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(17, 17, 16);
-          doc.text(cat.label + ' Thinking', ML + 3, y + 3);
-          bar(ML + 72, y - 2, 70, 5, pct, cat.color);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(r, g, b);
-          doc.text(score !== null ? score + '%' : '—', PW - MR - 2, y + 4, { align: 'right' });
-          y += 21;
-        });
-
-        if (dominant) {
-          newPage();
-          const info = INSIGHTS[dominant.cat.id];
-          doc.setFillColor(17, 17, 16);
-          doc.rect(ML, y, CW, 10, 'F');
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 198, 47);
-          doc.text('YOUR THINKING PROFILE', ML + 4, y + 7);
-          y += 16;
-
-          const lines = doc.splitTextToSize(info.insight, CW);
-          doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(40, 40, 40);
-          doc.text(lines, ML, y);
-          y += lines.length * 6 + 10;
-
-          [
-            { title: 'CORE STRENGTHS', items: info.strengths, bg: [240, 253, 244], tc: [22, 101, 52] },
-            { title: 'GROWTH EDGES',   items: info.growth,    bg: [254, 252, 232], tc: [133, 77, 14] },
-          ].forEach(panel => {
-            checkPage(panel.items.length * 8 + 20);
-            doc.setFillColor(...panel.bg);
-            const h = panel.items.length * 8 + 16;
-            doc.roundedRect(ML, y, CW, h, 3, 3, 'F');
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...panel.tc);
-            doc.text(panel.title, ML + 5, y + 8);
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
-            panel.items.forEach((item, i) => { doc.text('• ' + item, ML + 5, y + 17 + i * 8); });
-            y += h + 8;
-          });
-
-          checkPage(30);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(17, 17, 16);
-          doc.text('Aligned Career Roles', ML, y); y += 8;
-          info.roles.forEach(role => {
-            checkPage(10);
-            const [r, g, b] = hexRgb(dominant.cat.color);
-            doc.setFillColor(r, g, b, 0.1);
-            doc.roundedRect(ML, y - 4, CW, 9, 2, 2, 'F');
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(17, 17, 16);
-            doc.text('• ' + role, ML + 4, y + 2);
-            y += 11;
-          });
-        }
-
-        newPage();
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(17, 17, 16);
-        doc.text('Response Log', ML, y); y += 10;
-        doc.setFillColor(255, 198, 47); doc.rect(ML, y, CW, 1.5, 'F'); y += 8;
-
-        CATEGORIES.forEach(cat => {
-          checkPage(18);
-          doc.setFillColor(17, 17, 16);
-          doc.roundedRect(ML, y - 5, CW, 12, 2, 2, 'F');
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255);
-          doc.text(cat.label + ' Thinking', ML + 4, y + 3);
-          y += 14;
-
-          questionsForCat(CATEGORIES.indexOf(cat)).forEach((q, qi) => {
-            const ans       = state.answers[q.id];
-            const label     = answerLabel(q, ans);
-            const isGood    = ans !== undefined && ans !== null && ans !== 'skipped';
-            const [r, g, b] = isGood ? hexRgb(cat.color) : [150, 150, 150];
-            const typeTag   = TYPE_LABELS[q.type] || '';
-            const txtLines  = doc.splitTextToSize(`${qi + 1}. [${typeTag}] ${q.text}`, CW - 6);
-            checkPage(txtLines.length * 5 + 14);
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(40, 40, 40);
-            doc.text(txtLines, ML + 2, y);
-            y += txtLines.length * 5 + 1;
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(r, g, b);
-            doc.text('→ ' + label, ML + 6, y);
-            y += 9;
-          });
-          y += 4;
-        });
-
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-          doc.setPage(i);
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(160);
-          doc.text(`Page ${i} of ${pageCount}`, ML, PH - 7);
-          doc.text('EasyShiksha · Thinking Style Assessment', PW - MR, PH - 7, { align: 'right' });
-        }
-
-        const fileName = `TSA_${state.userName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-        doc.save(fileName);
-        showToast('PDF exported successfully!', 'success');
-
-      } catch (_err) {
-        showToast('PDF generation failed. Please try again.', 'error');
-      } finally {
-        setTimeout(() => {
-          hideLoader();
-          btn.disabled = false;
-          btn.innerHTML = '<img src="assets/svg/download.svg" alt="" width="13" height="13" /> Export PDF';
-        }, 600);
+      // ── PAGE FOOTERS ──────────────────────────────────────────────────────
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(160, 160, 160);
+        doc.text(`Page ${i} of ${pageCount}`, ML, PH - 7);
+        doc.text('EasyShiksha · Thinking Style Assessment', PW - MR, PH - 7, { align: 'right' });
       }
-    }, 200);
-  }
 
+      doc.save(fileName);
+      showToast('PDF exported successfully!', 'success');
+
+    } catch (err) {
+      showToast('PDF generation failed. Please try again.', 'error');
+      // Store in session for diagnostics without polluting console in production
+      try { sessionStorage.setItem('tsa_pdf_last_error', String(err)); } catch (_) {}
+
+    } finally {
+      restoreBtn();
+    }
+
+  }, 200);
+}
   /* ===========================================================
      SESSION PERSISTENCE
   =========================================================== */
@@ -1641,6 +1867,7 @@
           flagged:      Array.from(state.flagged),
           timerEnabled: state.timerEnabled,
           timerDuration: state.timerDuration,
+          timeLogs: state.timeLogs || {},
         },
         settings: {},
       });
